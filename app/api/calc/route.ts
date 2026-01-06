@@ -46,28 +46,12 @@ function parseMaybeNumber(v: any) {
 }
 
 function getServiceAccountJson(): any {
-  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("Missing GOOGLE_SERVICE_ACCOUNT_JSON");
+  const b64 = process.env.GOOGLE_SERVICE_ACCOUNT_B64;
+  if (!b64) throw new Error("Missing GOOGLE_SERVICE_ACCOUNT_B64");
 
-  let text = raw.trim();
-
-  // If someone accidentally pasted a filename/path, fail clearly.
-  if (text.endsWith(".json") && !text.startsWith("{")) {
-    throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON must be JSON contents, not a file path.");
-  }
-
-  // If env var got wrapped in quotes, remove them.
-  if (
-    (text.startsWith('"') && text.endsWith('"')) ||
-    (text.startsWith("'") && text.endsWith("'"))
-  ) {
-    text = text.slice(1, -1);
-  }
-
-  // Handle escaped newlines (common when storing JSON in env vars)
-  text = text.replace(/\\n/g, "\n");
-
-  return JSON.parse(text);
+  const jsonText = Buffer.from(b64, "base64").toString("utf8");
+  return JSON.parse(jsonText);
+}
 }
 
 function getSheetsClient() {
