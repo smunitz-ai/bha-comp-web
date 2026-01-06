@@ -52,7 +52,6 @@ function getServiceAccountJson(): any {
   const jsonText = Buffer.from(b64, "base64").toString("utf8");
   return JSON.parse(jsonText);
 }
-}
 
 function getSheetsClient() {
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
