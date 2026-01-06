@@ -1,0 +1,46 @@
+import { NextResponse } from "next/server";
+import { google } from "googleapis";
+import fs from "fs";
+import path from "path";
+
+export async function GET() {
+  try {
+    const spreadsheetId = process.env.GSHEET_ID;
+    const tab = process.env.GSHEET_TAB || "Comp Calculator";
+    const fileName = process.env.GOOGLE_SERVICE_ACCOUNT_FILE;
+
+    if (!spreadsheetId) {
+      return NextResponse.json({ ok: false, error: "Missing GSHEET_ID" }, { status: 500 });
+    }
+    if (!fileName) {
+      return NextResponse.json({ ok: false, error: "Missing GOOGLE_SERVICE_ACCOUNT_FILE" }, { status: 500 });
+    }
+
+    const filePath = path.join(process.cwd(), fileName);
+    if (!fs.existsSync(filePath)) {
+      return NextResponse.json({ ok: false, error: `Key file not found at ${filePath}` }, { status: 500 });
+    }
+
+    const creds = JSON.parse(fs.readFileSync(filePath, "utf8"));
+
+    const auth = new google.auth.GoogleAuth({
+      credentials: creds,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    });
+
+    const sheets = google.sheets({ version: "v4", auth });
+
+    const resp = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${tab}!E9`,
+      valueRenderOption: "FORMATTED_VALUE",
+    });
+
+    return NextResponse.json({
+      ok: true,
+      testValue: resp.data.values?.[0]?.[0] ?? null,
+    });
+  } catch (err: any) {
+    return NextResponse.json({ ok: false, error: err?.message || String(err) }, { status: 500 });
+  }
+}
