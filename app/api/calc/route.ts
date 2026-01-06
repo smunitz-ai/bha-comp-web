@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
-import fs from "fs";
-import path from "path";
 
 type Payload = {
   tier?: string | number;
@@ -20,9 +18,9 @@ type Payload = {
 
   programYear?: string; // B63 uses specific dropdown strings
 
-  kidsP8?: string | number;      // B77
-  kidsCheder?: string | number;  // B78
-  girlsBHH?: string | number;    // B79
+  kidsP8?: string | number; // B77
+  kidsCheder?: string | number; // B78
+  girlsBHH?: string | number; // B79
 
   perfA?: string; // F34: "Level 1"..."Level 4"
   perfB?: string; // F35: "Level 1"..."Level 4"
@@ -47,18 +45,38 @@ function parseMaybeNumber(v: any) {
   return Number.isFinite(n) ? n : v;
 }
 
+function getServiceAccountJson(): any {
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  if (!raw) throw new Error("Missing GOOGLE_SERVICE_ACCOUNT_JSON");
+
+  let text = raw.trim();
+
+  // If someone accidentally pasted a filename/path, fail clearly.
+  if (text.endsWith(".json") && !text.startsWith("{")) {
+    throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON must be JSON contents, not a file path.");
+  }
+
+  // If env var got wrapped in quotes, remove them.
+  if (
+    (text.startsWith('"') && text.endsWith('"')) ||
+    (text.startsWith("'") && text.endsWith("'"))
+  ) {
+    text = text.slice(1, -1);
+  }
+
+  // Handle escaped newlines (common when storing JSON in env vars)
+  text = text.replace(/\\n/g, "\n");
+
+  return JSON.parse(text);
+}
+
 function getSheetsClient() {
-  const spreadsheetId = process.env.GSHEET_ID;
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
   const tab = process.env.GSHEET_TAB || "Comp Calculator";
-  const fileName = process.env.GOOGLE_SERVICE_ACCOUNT_FILE;
 
-  if (!spreadsheetId) throw new Error("Missing GSHEET_ID");
-  if (!fileName) throw new Error("Missing GOOGLE_SERVICE_ACCOUNT_FILE");
+  if (!spreadsheetId) throw new Error("Missing GOOGLE_SHEET_ID");
 
-  const filePath = path.join(process.cwd(), fileName);
-  if (!fs.existsSync(filePath)) throw new Error(`Key file not found: ${filePath}`);
-
-  const creds = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  const creds = getServiceAccountJson();
 
   const auth = new google.auth.GoogleAuth({
     credentials: creds,
@@ -111,7 +129,11 @@ function findLabelRightValuePairs(rect: string[][], wantedLabels: string[]) {
   }
 
   const order = new Map(wantedLabels.map((l, i) => [l.toLowerCase(), i]));
-  found.sort((a, b) => (order.get(a.label.toLowerCase()) ?? 999) - (order.get(b.label.toLowerCase()) ?? 999));
+  found.sort(
+    (a, b) =>
+      (order.get(a.label.toLowerCase()) ?? 999) -
+      (order.get(b.label.toLowerCase()) ?? 999)
+  );
   return found;
 }
 
@@ -125,7 +147,10 @@ export async function GET() {
     });
     return NextResponse.json({ ok: true, testValue: resp.data.values?.[0]?.[0] ?? null });
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message || String(err) }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: err?.message || String(err) },
+      { status: 500 }
+    );
   }
 }
 
@@ -185,15 +210,15 @@ export async function POST(req: Request) {
 
     // 3) Read outputs + totals-by-label + extras
     const ranges = [
-      `${tab}!E9:E18`,     // main comp lines
-      `${tab}!D18:E26`,    // totals + nearby (label/value pairs we can match)
-      `${tab}!E26:E26`,    // grand total
+      `${tab}!E9:E18`, // main comp lines
+      `${tab}!D18:E26`, // totals + nearby (label/value pairs we can match)
+      `${tab}!E26:E26`, // grand total
 
-      `${tab}!D42:E74`,    // additional calcs block
-      `${tab}!F36:G40`,    // other calcs block (starts AFTER perf dropdowns)
-      `${tab}!N3:Q21`,     // helper table
-      `${tab}!U1:U1`,      // helper cell
-      `${tab}!A60:H110`,   // scan for children/tuition labels (optional display)
+      `${tab}!D42:E74`, // additional calcs block
+      `${tab}!F36:G40`, // other calcs block (starts AFTER perf dropdowns)
+      `${tab}!N3:Q21`, // helper table
+      `${tab}!U1:U1`, // helper cell
+      `${tab}!A60:H110`, // scan for children/tuition labels (optional display)
     ];
 
     const resp = await sheets.spreadsheets.values.batchGet({
@@ -285,6 +310,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, sections });
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message || String(err) }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: err?.message || String(err) },
+      { status: 500 }
+    );
   }
 }
