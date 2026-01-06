@@ -144,30 +144,32 @@ export async function POST(req: Request) {
 
     // 1) Write inputs
     const data = [
-      { range: `${tab}!B9`, values: [[parseMaybeNumber(body.tier)]] },
-      { range: `${tab}!B10`, values: [[body.scenario ?? ""]] },
+  // DO NOT write B9 anymore — let the sheet compute Tier from Program Year (B63)
+  // { range: `${tab}!B9`, values: [[parseMaybeNumber(body.tier)]] },
 
-      { range: `${tab}!B12`, values: [[body.spouseARole ?? ""]] },
-      { range: `${tab}!B13`, values: [[body.spouseAGender ?? ""]] },
-      { range: `${tab}!B14`, values: [[parseMaybeNumber(body.spouseAFTE)]] },
-      { range: `${tab}!B15`, values: [[body.spouseACheder ?? ""]] },
-      { range: `${tab}!B16`, values: [[parseMaybeNumber(body.spouseAPDO)]] },
+  { range: `${tab}!B10`, values: [[body.scenario ?? ""]] },
 
-      { range: `${tab}!B19`, values: [[body.spouseBGender ?? ""]] },
-      { range: `${tab}!B20`, values: [[parseMaybeNumber(body.spouseBFTE)]] },
-      { range: `${tab}!B21`, values: [[body.spouseBCheder ?? ""]] },
-      { range: `${tab}!B22`, values: [[parseMaybeNumber(body.spouseBPDO)]] },
+  { range: `${tab}!B12`, values: [[body.spouseARole ?? ""]] },
+  { range: `${tab}!B13`, values: [[body.spouseAGender ?? ""]] },
+  { range: `${tab}!B14`, values: [[parseMaybeNumber(body.spouseAFTE)]] },
+  { range: `${tab}!B15`, values: [[body.spouseACheder ?? ""]] },
+  { range: `${tab}!B16`, values: [[parseMaybeNumber(body.spouseAPDO)]] },
 
-      // NEW inputs
-      { range: `${tab}!B63`, values: [[body.programYear ?? ""]] },
+  { range: `${tab}!B19`, values: [[body.spouseBGender ?? ""]] },
+  { range: `${tab}!B20`, values: [[parseMaybeNumber(body.spouseBFTE)]] },
+  { range: `${tab}!B21`, values: [[body.spouseBCheder ?? ""]] },
+  { range: `${tab}!B22`, values: [[parseMaybeNumber(body.spouseBPDO)]] },
 
-      { range: `${tab}!B77`, values: [[parseMaybeNumber(body.kidsP8)]] },
-      { range: `${tab}!B78`, values: [[parseMaybeNumber(body.kidsCheder)]] },
-      { range: `${tab}!B79`, values: [[parseMaybeNumber(body.girlsBHH)]] },
+  { range: `${tab}!B63`, values: [[body.programYear ?? ""]] },
 
-      { range: `${tab}!F34`, values: [[body.perfA ?? ""]] },
-      { range: `${tab}!F35`, values: [[body.perfB ?? ""]] },
-    ];
+  { range: `${tab}!B77`, values: [[parseMaybeNumber(body.kidsP8)]] },
+  { range: `${tab}!B78`, values: [[parseMaybeNumber(body.kidsCheder)]] },
+  { range: `${tab}!B79`, values: [[parseMaybeNumber(body.girlsBHH)]] },
+
+  { range: `${tab}!F34`, values: [[body.perfA ?? ""]] },
+  { range: `${tab}!F35`, values: [[body.perfB ?? ""]] },
+];
+
 
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId,
