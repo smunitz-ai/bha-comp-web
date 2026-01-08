@@ -88,10 +88,13 @@ function rowsFromTwoCols(grid: string[][], labelColIndex = 0, valueColIndex = 1)
 
 function pickByLabel(pairs: { label: string; value: string }[], wanted: string[]) {
   const map = new Map<string, string>();
-  for (const p of pairs) {
-    map.set(p.label.toLowerCase(), p.value);
-  }
+  for (const p of pairs) map.set(p.label.toLowerCase(), p.value);
   return wanted.map((w) => ({ label: w, value: map.get(w.toLowerCase()) ?? "" }));
+}
+
+function valueByLabel(pairs: { label: string; value: string }[], label: string) {
+  const key = label.toLowerCase();
+  return pairs.find((p) => p.label.toLowerCase() === key)?.value ?? "";
 }
 
 // Scan a rectangle for specific labels; value is immediately to the right.
@@ -128,7 +131,10 @@ export async function GET() {
       range: `${tab}!E9`,
       valueRenderOption: "FORMATTED_VALUE",
     });
-    return NextResponse.json({ ok: true, testValue: resp.data.values?.[0]?.[0] ?? null });
+    return NextResponse.json({
+      ok: true,
+      testValue: resp.data.values?.[0]?.[0] ?? null,
+    });
   } catch (err: any) {
     return NextResponse.json(
       { ok: false, error: err?.message || String(err) },
@@ -194,8 +200,8 @@ export async function POST(req: Request) {
 
     // 3) Read outputs + totals-by-label + extras
     const ranges = [
-      `${tab}!E9:E18`, // main comp lines
-      `${tab}!D18:E26`, // totals + nearby (label/value pairs we can match)
+      `${tab}!E9:E18`, // main comp lines (includes "Chinuch Fund" line)
+      `${tab}!D18:E26`, // totals block (where you added "Total Chinuch Fund")
       `${tab}!E26:E26`, // grand total
 
       `${tab}!D42:E74`, // additional calcs block
@@ -217,7 +223,7 @@ export async function POST(req: Request) {
 
     const totalsPairs = rowsFromTwoCols(vr[1]?.values || [], 0, 1);
 
-    // ✅ Added "Total Chinuch Fund" so it appears in TOTALS / Key outputs
+    // Keep this if you still show a "TOTALS" section elsewhere in the UI
     const totalsRows = pickByLabel(totalsPairs, [
       "Total Base Salaries",
       "Total Cheder Stipends",
@@ -227,6 +233,16 @@ export async function POST(req: Request) {
     ]);
 
     const e26 = getCell(vr, 2, 0, 0);
+
+    // ✅ This is the section your UI calls "Summary / Key outputs"
+    const summaryKeyOutputsRows = [
+      { label: "Total Compensation", value: String(e26 ?? "") },
+      { label: "Total Base Salaries", value: valueByLabel(totalsPairs, "Total Base Salaries") },
+      { label: "Total Cheder Stipends", value: valueByLabel(totalsPairs, "Total Cheder Stipends") },
+      { label: "Total 403B", value: valueByLabel(totalsPairs, "Total 403(b)") },
+      { label: "Total PDO Compensation", value: valueByLabel(totalsPairs, "Total PDO Compensation") },
+      { label: "Total Chinuch Fund", value: valueByLabel(totalsPairs, "Total Chinuch Fund") },
+    ].filter((r) => String(r.value ?? "").trim() !== "");
 
     const d42_e74 = vr[3]?.values || [];
     const f36_g40 = vr[4]?.values || [];
@@ -252,6 +268,13 @@ export async function POST(req: Request) {
 
     const sections: Section[] = [];
 
+    // ✅ Put Summary first so your UI sees it clearly
+    sections.push({
+      kind: "rows",
+      title: "Summary / Key outputs",
+      rows: summaryKeyOutputsRows,
+    });
+
     sections.push({
       kind: "rows",
       title: "Compensation",
@@ -269,6 +292,7 @@ export async function POST(req: Request) {
       ],
     });
 
+    // Keep this; harmless, and some UI views may still display it
     sections.push({
       kind: "rows",
       title: "TOTALS",
@@ -281,13 +305,21 @@ export async function POST(req: Request) {
       rows: [{ label: "Total Compensation (Yearly)", value: String(e26 ?? "") }],
     });
 
-    if (more1.length) sections.push({ kind: "rows", title: "Additional Calculations", rows: more1 });
+    if (more1.length)
+      sections.push({ kind: "rows", title: "Additional Calculations", rows: more1 });
     if (more2.length) sections.push({ kind: "rows", title: "Other Calculations", rows: more2 });
-    if (childrenRows.length) sections.push({ kind: "rows", title: "Children / Tuition Savings (read-only)", rows: childrenRows });
+    if (childrenRows.length)
+      sections.push({
+        kind: "rows",
+        title: "Children / Tuition Savings (read-only)",
+        rows: childrenRows,
+      });
 
     if (n3_q21.length) {
       const headers = (n3_q21[0] || []).map((x: any) => String(x ?? ""));
-      const rows = (n3_q21.slice(1) || []).map((r: any[]) => (r || []).map((x) => String(x ?? "")));
+      const rows = (n3_q21.slice(1) || []).map((r: any[]) =>
+        (r || []).map((x) => String(x ?? ""))
+      );
       sections.push({ kind: "table", title: "Helper Table", headers, rows });
     }
 
