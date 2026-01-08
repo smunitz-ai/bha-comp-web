@@ -144,32 +144,31 @@ export async function POST(req: Request) {
 
     // 1) Write inputs
     const data = [
-  // DO NOT write B9 anymore — let the sheet compute Tier from Program Year (B63)
-  // { range: `${tab}!B9`, values: [[parseMaybeNumber(body.tier)]] },
+      // DO NOT write B9 anymore — let the sheet compute Tier from Program Year (B63)
+      // { range: `${tab}!B9`, values: [[parseMaybeNumber(body.tier)]] },
 
-  { range: `${tab}!B10`, values: [[body.scenario ?? ""]] },
+      { range: `${tab}!B10`, values: [[body.scenario ?? ""]] },
 
-  { range: `${tab}!B12`, values: [[body.spouseARole ?? ""]] },
-  { range: `${tab}!B13`, values: [[body.spouseAGender ?? ""]] },
-  { range: `${tab}!B14`, values: [[parseMaybeNumber(body.spouseAFTE)]] },
-  { range: `${tab}!B15`, values: [[body.spouseACheder ?? ""]] },
-  { range: `${tab}!B16`, values: [[parseMaybeNumber(body.spouseAPDO)]] },
+      { range: `${tab}!B12`, values: [[body.spouseARole ?? ""]] },
+      { range: `${tab}!B13`, values: [[body.spouseAGender ?? ""]] },
+      { range: `${tab}!B14`, values: [[parseMaybeNumber(body.spouseAFTE)]] },
+      { range: `${tab}!B15`, values: [[body.spouseACheder ?? ""]] },
+      { range: `${tab}!B16`, values: [[parseMaybeNumber(body.spouseAPDO)]] },
 
-  { range: `${tab}!B19`, values: [[body.spouseBGender ?? ""]] },
-  { range: `${tab}!B20`, values: [[parseMaybeNumber(body.spouseBFTE)]] },
-  { range: `${tab}!B21`, values: [[body.spouseBCheder ?? ""]] },
-  { range: `${tab}!B22`, values: [[parseMaybeNumber(body.spouseBPDO)]] },
+      { range: `${tab}!B19`, values: [[body.spouseBGender ?? ""]] },
+      { range: `${tab}!B20`, values: [[parseMaybeNumber(body.spouseBFTE)]] },
+      { range: `${tab}!B21`, values: [[body.spouseBCheder ?? ""]] },
+      { range: `${tab}!B22`, values: [[parseMaybeNumber(body.spouseBPDO)]] },
 
-  { range: `${tab}!B63`, values: [[body.programYear ?? ""]] },
+      { range: `${tab}!B63`, values: [[body.programYear ?? ""]] },
 
-  { range: `${tab}!B77`, values: [[parseMaybeNumber(body.kidsP8)]] },
-  { range: `${tab}!B78`, values: [[parseMaybeNumber(body.kidsCheder)]] },
-  { range: `${tab}!B79`, values: [[parseMaybeNumber(body.girlsBHH)]] },
+      { range: `${tab}!B77`, values: [[parseMaybeNumber(body.kidsP8)]] },
+      { range: `${tab}!B78`, values: [[parseMaybeNumber(body.kidsCheder)]] },
+      { range: `${tab}!B79`, values: [[parseMaybeNumber(body.girlsBHH)]] },
 
-  { range: `${tab}!F34`, values: [[body.perfA ?? ""]] },
-  { range: `${tab}!F35`, values: [[body.perfB ?? ""]] },
-];
-
+      { range: `${tab}!F34`, values: [[body.perfA ?? ""]] },
+      { range: `${tab}!F35`, values: [[body.perfB ?? ""]] },
+    ];
 
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId,
@@ -217,11 +216,14 @@ export async function POST(req: Request) {
     const e9_e18 = (vr[0]?.values || []).map((r: any[]) => r?.[0] ?? "");
 
     const totalsPairs = rowsFromTwoCols(vr[1]?.values || [], 0, 1);
+
+    // ✅ Added "Total Chinuch Fund" so it appears in TOTALS / Key outputs
     const totalsRows = pickByLabel(totalsPairs, [
       "Total Base Salaries",
       "Total Cheder Stipends",
       "Total 403(b)",
       "Total PDO Compensation",
+      "Total Chinuch Fund",
     ]);
 
     const e26 = getCell(vr, 2, 0, 0);
