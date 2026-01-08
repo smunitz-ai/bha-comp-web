@@ -268,13 +268,7 @@ export async function POST(req: Request) {
 
     const sections: Section[] = [];
 
-    // ✅ Put Summary first so your UI sees it clearly
-    sections.push({
-      kind: "rows",
-      title: "Summary / Key outputs",
-      rows: summaryKeyOutputsRows,
-    });
-
+  
     sections.push({
       kind: "rows",
       title: "Compensation",

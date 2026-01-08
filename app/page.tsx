@@ -97,7 +97,13 @@ function Icon({
       <svg {...common}>
         <path d="M16 11a4 4 0 1 0-8 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         <path d="M4 21a8 8 0 0 1 16 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        <path d="M20 21a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" opacity="0.45" />
+        <path
+          d="M20 21a6 6 0 0 0-6-6"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          opacity="0.45"
+        />
       </svg>
     );
 
@@ -152,7 +158,13 @@ function Icon({
 
   return (
     <svg {...common}>
-      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M9 6l6 6-6 6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -257,7 +269,13 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 function categoryForTitle(title: string) {
   const t = title.toLowerCase();
   if (t.includes("compensation"))
-    return { key: "comp", label: "Compensation", icon: "money" as const, tint: "rgba(99,102,241,0.10)", border: "rgba(99,102,241,0.22)" };
+    return {
+      key: "comp",
+      label: "Compensation",
+      icon: "money" as const,
+      tint: "rgba(99,102,241,0.10)",
+      border: "rgba(99,102,241,0.22)",
+    };
   if (t === "totals" || t.includes("grand total") || t.includes("total"))
     return { key: "totals", label: "Totals", icon: "chart" as const, tint: "rgba(16,185,129,0.10)", border: "rgba(16,185,129,0.22)" };
   if (t.includes("additional"))
@@ -960,7 +978,9 @@ export default function Page() {
                     "rgba(248,250,252,0.75)",
                 }}
               >
-                <div style={{ fontSize: 11, fontWeight: 900, color: "#64748b", letterSpacing: ".10em" }}>TOTAL COMPENSATION (YEARLY)</div>
+                <div style={{ fontSize: 11, fontWeight: 900, color: "#64748b", letterSpacing: ".10em" }}>
+                  TOTAL COMPENSATION (YEARLY)
+                </div>
                 <div style={{ marginTop: 6, fontSize: 26, fontWeight: 1100, color: "#0f172a" }}>
                   {pickValue(sections, "Total Compensation (Yearly)") || "—"}
                 </div>
@@ -976,8 +996,10 @@ export default function Page() {
             <div style={{ gridColumn: "span 3" }}>
               <MiniStat label="Total 403(b)" value={pickValue(sections, "Total 403(b)")} />
             </div>
+
+            {/* ✅ Added Chinuch Fund, ✅ Removed PDO card */}
             <div style={{ gridColumn: "span 3" }}>
-              <MiniStat label="Total PDO Compensation" value={pickValue(sections, "Total PDO Compensation")} />
+              <MiniStat label="Total Chinuch Fund" value={pickValue(sections, "Total Chinuch Fund")} />
             </div>
           </div>
         </div>
