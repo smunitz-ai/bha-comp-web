@@ -85,7 +85,13 @@ function Icon({
       <svg {...common}>
         <path d="M16 11a4 4 0 1 0-8 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         <path d="M4 21a8 8 0 0 1 16 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        <path d="M20 21a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" opacity="0.45" />
+        <path
+          d="M20 21a6 6 0 0 0-6-6"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          opacity="0.45"
+        />
       </svg>
     );
 
@@ -140,7 +146,13 @@ function Icon({
 
   return (
     <svg {...common}>
-      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M9 6l6 6-6 6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -236,7 +248,9 @@ function MiniStat({ label, value }: { label: string; value: string }) {
         background: "rgba(248,250,252,0.75)",
       }}
     >
-      <div style={{ fontSize: 11, color: "#64748b", fontWeight: 900, letterSpacing: ".10em" }}>{label.toUpperCase()}</div>
+      <div style={{ fontSize: 11, color: "#64748b", fontWeight: 900, letterSpacing: ".10em" }}>
+        {label.toUpperCase()}
+      </div>
       <div style={{ marginTop: 6, fontSize: 16, fontWeight: 1000, color: "#0f172a" }}>{value || "—"}</div>
     </div>
   );
@@ -245,16 +259,74 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 function categoryForTitle(title: string) {
   const t = title.toLowerCase();
   if (t.includes("compensation"))
-    return { key: "comp", label: "Compensation", icon: "money" as const, tint: "rgba(99,102,241,0.10)", border: "rgba(99,102,241,0.22)" };
+    return {
+      key: "comp",
+      label: "Compensation",
+      icon: "money" as const,
+      tint: "rgba(99,102,241,0.10)",
+      border: "rgba(99,102,241,0.22)",
+    };
   if (t === "totals" || t.includes("grand total") || t.includes("total"))
-    return { key: "totals", label: "Totals", icon: "chart" as const, tint: "rgba(16,185,129,0.10)", border: "rgba(16,185,129,0.22)" };
+    return {
+      key: "totals",
+      label: "Totals",
+      icon: "chart" as const,
+      tint: "rgba(16,185,129,0.10)",
+      border: "rgba(16,185,129,0.22)",
+    };
   if (t.includes("additional"))
-    return { key: "addl", label: "Additional", icon: "calc" as const, tint: "rgba(245,158,11,0.10)", border: "rgba(245,158,11,0.22)" };
+    return {
+      key: "addl",
+      label: "Additional",
+      icon: "calc" as const,
+      tint: "rgba(245,158,11,0.10)",
+      border: "rgba(245,158,11,0.22)",
+    };
   if (t.includes("other"))
-    return { key: "other", label: "Other", icon: "grid" as const, tint: "rgba(14,165,233,0.10)", border: "rgba(14,165,233,0.22)" };
+    return {
+      key: "other",
+      label: "Other",
+      icon: "grid" as const,
+      tint: "rgba(14,165,233,0.10)",
+      border: "rgba(14,165,233,0.22)",
+    };
   if (t.includes("children"))
-    return { key: "kids", label: "Children", icon: "users" as const, tint: "rgba(236,72,153,0.10)", border: "rgba(236,72,153,0.22)" };
-  return { key: "misc", label: "Results", icon: "sparkle" as const, tint: "rgba(148,163,184,0.12)", border: "rgba(148,163,184,0.24)" };
+    return {
+      key: "kids",
+      label: "Children",
+      icon: "users" as const,
+      tint: "rgba(236,72,153,0.10)",
+      border: "rgba(236,72,153,0.22)",
+    };
+  return {
+    key: "misc",
+    label: "Results",
+    icon: "sparkle" as const,
+    tint: "rgba(148,163,184,0.12)",
+    border: "rgba(148,163,184,0.24)",
+  };
+}
+
+// ------------- 3-color emphasis for "Additional Calculations" key lines -------------
+function accentForAdditionalCalculationsRow(sectionTitle: string, rowLabel: string) {
+  const st = sectionTitle.toLowerCase();
+  if (!st.includes("additional")) return null;
+
+  const l = rowLabel.toLowerCase();
+
+  // sky
+  if (l.includes("cash benefits"))
+    return { color: "#0284c7", bg: "rgba(2,132,199,0.08)", border: "rgba(2,132,199,0.22)" };
+
+  // emerald
+  if (l.includes("non-cash") || l.includes("tax advantage"))
+    return { color: "#059669", bg: "rgba(5,150,105,0.08)", border: "rgba(5,150,105,0.22)" };
+
+  // violet
+  if (l.includes("after-tax disposable"))
+    return { color: "#7c3aed", bg: "rgba(124,58,237,0.08)", border: "rgba(124,58,237,0.22)" };
+
+  return null;
 }
 
 function RowsCard({ title, rows }: { title: string; rows: { label: string; value: string }[] }) {
@@ -294,23 +366,51 @@ function RowsCard({ title, rows }: { title: string; rows: { label: string; value
       </div>
 
       <div style={{ border: "1px solid rgba(226,232,240,1)", borderRadius: 14, overflow: "hidden" }}>
-        {rows.map((r, idx) => (
-          <div
-            key={r.label}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr auto",
-              gap: 12,
-              padding: "11px 12px",
-              background: idx % 2 ? "rgba(255,255,255,0.92)" : "rgba(248,250,252,0.82)",
-              borderTop: idx === 0 ? "none" : "1px solid rgba(226,232,240,0.7)",
-              alignItems: "center",
-            }}
-          >
-            <div style={{ fontSize: 13, color: "#0f172a" }}>{r.label}</div>
-            <div style={{ fontSize: 13, fontWeight: 950, whiteSpace: "nowrap", color: "#0f172a" }}>{r.value || "—"}</div>
-          </div>
-        ))}
+        {rows.map((r, idx) => {
+          const acc = accentForAdditionalCalculationsRow(title, r.label);
+          const isAccented = Boolean(acc);
+
+          return (
+            <div
+              key={r.label}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr auto",
+                gap: 12,
+                padding: "11px 12px",
+                background: isAccented
+                  ? acc!.bg
+                  : idx % 2
+                    ? "rgba(255,255,255,0.92)"
+                    : "rgba(248,250,252,0.82)",
+                borderTop: idx === 0 ? "none" : "1px solid rgba(226,232,240,0.7)",
+                alignItems: "center",
+                boxShadow: isAccented ? `inset 3px 0 0 ${acc!.color}` : "none",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 13,
+                  color: isAccented ? acc!.color : "#0f172a",
+                  fontWeight: isAccented ? 950 : 700, // label bold on accented lines
+                }}
+              >
+                {r.label}
+              </div>
+
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 950, // values bold always
+                  whiteSpace: "nowrap",
+                  color: isAccented ? acc!.color : "#0f172a",
+                }}
+              >
+                {r.value || "—"}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -633,7 +733,9 @@ export default function Page() {
           <div style={{ display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <h1 style={{ margin: 0, fontSize: 22, fontWeight: 1000, color: "#0f172a" }}>Shluchim Compensation Calculator</h1>
+                <h1 style={{ margin: 0, fontSize: 22, fontWeight: 1000, color: "#0f172a" }}>
+                  Shluchim Compensation Calculator
+                </h1>
                 <Badge>Sheet-powered</Badge>
               </div>
               <div style={{ color: "#475569", fontSize: 13, marginTop: 6 }}>Inputs → Google Sheet → Outputs (pretty + consistent)</div>
@@ -715,7 +817,11 @@ export default function Page() {
 
               <div style={{ gridColumn: "span 4" }}>
                 <Field label="Program Year">
-                  <select style={control} value={form.programYear} onChange={(e) => setForm({ ...form, programYear: e.target.value })}>
+                  <select
+                    style={control}
+                    value={form.programYear}
+                    onChange={(e) => setForm({ ...form, programYear: e.target.value })}
+                  >
                     {OPTIONS.programYears.map((y) => (
                       <option key={y} value={y}>
                         {y}
@@ -732,7 +838,11 @@ export default function Page() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 12 }}>
               <div style={{ gridColumn: "span 4" }}>
                 <Field label="Role">
-                  <select style={control} value={form.spouseARole} onChange={(e) => setForm({ ...form, spouseARole: e.target.value })}>
+                  <select
+                    style={control}
+                    value={form.spouseARole}
+                    onChange={(e) => setForm({ ...form, spouseARole: e.target.value })}
+                  >
                     {OPTIONS.spouseARoles.map((r) => (
                       <option key={r} value={r}>
                         {r}
@@ -744,7 +854,11 @@ export default function Page() {
 
               <div style={{ gridColumn: "span 2" }}>
                 <Field label="Gender">
-                  <select style={control} value={form.spouseAGender} onChange={(e) => setForm({ ...form, spouseAGender: e.target.value })}>
+                  <select
+                    style={control}
+                    value={form.spouseAGender}
+                    onChange={(e) => setForm({ ...form, spouseAGender: e.target.value })}
+                  >
                     {OPTIONS.genders.map((g) => (
                       <option key={g} value={g}>
                         {g}
@@ -756,7 +870,11 @@ export default function Page() {
 
               <div style={{ gridColumn: "span 2" }}>
                 <Field label="FTE">
-                  <select style={control} value={form.spouseAFTE} onChange={(e) => setForm({ ...form, spouseAFTE: e.target.value })}>
+                  <select
+                    style={control}
+                    value={form.spouseAFTE}
+                    onChange={(e) => setForm({ ...form, spouseAFTE: e.target.value })}
+                  >
                     {OPTIONS.ftes.map((v) => (
                       <option key={v} value={v}>
                         {v}
@@ -768,7 +886,11 @@ export default function Page() {
 
               <div style={{ gridColumn: "span 2" }}>
                 <Field label="Cheder Participation">
-                  <select style={control} value={form.spouseACheder} onChange={(e) => setForm({ ...form, spouseACheder: e.target.value })}>
+                  <select
+                    style={control}
+                    value={form.spouseACheder}
+                    onChange={(e) => setForm({ ...form, spouseACheder: e.target.value })}
+                  >
                     {OPTIONS.yesNo.map((v) => (
                       <option key={v} value={v}>
                         {v}
@@ -792,7 +914,11 @@ export default function Page() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 12 }}>
                 <div style={{ gridColumn: "span 2" }}>
                   <Field label="Gender">
-                    <select style={control} value={form.spouseBGender} onChange={(e) => setForm({ ...form, spouseBGender: e.target.value })}>
+                    <select
+                      style={control}
+                      value={form.spouseBGender}
+                      onChange={(e) => setForm({ ...form, spouseBGender: e.target.value })}
+                    >
                       {OPTIONS.genders.map((g) => (
                         <option key={g} value={g}>
                           {g}
@@ -816,7 +942,11 @@ export default function Page() {
 
                 <div style={{ gridColumn: "span 3" }}>
                   <Field label="Cheder Participation">
-                    <select style={control} value={form.spouseBCheder} onChange={(e) => setForm({ ...form, spouseBCheder: e.target.value })}>
+                    <select
+                      style={control}
+                      value={form.spouseBCheder}
+                      onChange={(e) => setForm({ ...form, spouseBCheder: e.target.value })}
+                    >
                       {OPTIONS.yesNo.map((v) => (
                         <option key={v} value={v}>
                           {v}
@@ -948,7 +1078,9 @@ export default function Page() {
                     "rgba(248,250,252,0.75)",
                 }}
               >
-                <div style={{ fontSize: 11, fontWeight: 900, color: "#64748b", letterSpacing: ".10em" }}>TOTAL COMPENSATION (YEARLY)</div>
+                <div style={{ fontSize: 11, fontWeight: 900, color: "#64748b", letterSpacing: ".10em" }}>
+                  TOTAL COMPENSATION (YEARLY)
+                </div>
                 <div style={{ marginTop: 6, fontSize: 26, fontWeight: 1100, color: "#0f172a" }}>
                   {pickValue(sections, "Total Compensation (Yearly)") || "—"}
                 </div>
@@ -965,9 +1097,23 @@ export default function Page() {
               <MiniStat label="Total 403(b)" value={pickValue(sections, "Total 403(b)")} />
             </div>
 
-            {/* CHANGED: PDO OUT, CHINUCH FUND IN */}
+            {/* PDO OUT, CHINUCH FUND IN */}
             <div style={{ gridColumn: "span 3" }}>
               <MiniStat label="Total Chinuch Fund" value={pickValue(sections, "Total Chinuch Fund")} />
+            </div>
+
+            {/* NEW: E49 + E87 */}
+            <div style={{ gridColumn: "span 6" }}>
+              <MiniStat
+                label="Estimated After-Tax Disposable"
+                value={pickValue(sections, "Estimated after-tax disposable")}
+              />
+            </div>
+            <div style={{ gridColumn: "span 6" }}>
+              <MiniStat
+                label="All-In Value Including Tuition"
+                value={pickValue(sections, "All-in value incl. tuition")}
+              />
             </div>
           </div>
         </div>
