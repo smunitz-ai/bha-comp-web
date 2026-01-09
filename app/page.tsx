@@ -9,11 +9,8 @@ type Props = {
   /**
    * A 2D grid of sheet values (rows x columns) where A1 == values[0][0]
    * This matches the common Google Sheets "values" shape.
-   *
-   * NOTE: During prerender/SSR, this can be undefined if the sheet fetch fails.
-   * We handle that safely.
    */
-  values?: SheetGrid;
+  values: SheetGrid;
 
   /**
    * Optional section title override
@@ -81,6 +78,7 @@ function formatMoney(v: any): string {
 function formatMoneyMaybeCents(v: any): string {
   const n = safeToNumber(v);
   if (n === null) return String(v ?? "");
+  // if it looks like it has cents in the string, keep 2
   const s = String(v ?? "");
   const hasCents = /\.\d{1,2}\b/.test(s);
   return n.toLocaleString(undefined, {
@@ -89,6 +87,12 @@ function formatMoneyMaybeCents(v: any): string {
     minimumFractionDigits: hasCents ? 2 : 0,
     maximumFractionDigits: hasCents ? 2 : 0,
   });
+}
+
+function formatNumber(v: any): string {
+  const n = safeToNumber(v);
+  if (n === null) return String(v ?? "");
+  return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 function formatPercent(v: any): string {
@@ -142,7 +146,7 @@ function Row({
         className={[
           "text-right tabular-nums",
           colorClass,
-          bigValue ? "text-xl font-extrabold" : "text-sm font-semibold",
+          bigValue ? "text-xl font800 font-extrabold" : "text-sm font-semibold",
           isTotal ? "font-extrabold" : "",
         ].join(" ")}
         style={{ fontWeight: bigValue ? 800 : 600 }}
@@ -158,14 +162,14 @@ export default function AdditionalCalculationsPanel({
   title = "Additional Calculations",
   topLeftA1 = "A1",
 }: Props) {
-  // ✅ critical SSR/prerender safety
-  const grid: SheetGrid = Array.isArray(values) ? values : [];
-
+  // Per your note:
   // E49 houses Estimated after-tax disposable
   // E87 houses All-in value incl. tuition (Comp + supports + tuition)
-  const afterTaxDisposable = getCellFromGrid(grid, "E49", topLeftA1);
-  const allInInclTuition = getCellFromGrid(grid, "E87", topLeftA1);
+  const afterTaxDisposable = getCellFromGrid(values, "E49", topLeftA1);
+  const allInInclTuition = getCellFromGrid(values, "E87", topLeftA1);
 
+  // Color groups (Tailwind). These are intentionally different.
+  // Feel free to swap to match your brand palette.
   const group1 = "text-sky-700";
   const group2 = "text-emerald-700";
   const group3 = "text-violet-700";
@@ -178,6 +182,7 @@ export default function AdditionalCalculationsPanel({
           <div className="flex items-center justify-between gap-4">
             <h3 className="text-base font-semibold text-slate-900">{title}</h3>
 
+            {/* Summary Key Outputs (now with values) */}
             <div className="flex flex-col items-end">
               <div className="text-xs font-medium text-slate-500">Summary Key Outputs</div>
               <div className="mt-1 flex items-center gap-6">
@@ -199,6 +204,7 @@ export default function AdditionalCalculationsPanel({
         </div>
 
         <div className="p-5 grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* GROUP 1: Same color as Estimated after-tax disposable; make its value larger */}
           <div className="rounded-2xl border border-black/10 bg-white p-4">
             <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
               Taxes + refunds + disposable
@@ -213,12 +219,7 @@ export default function AdditionalCalculationsPanel({
               colorClass={group1}
               valueFormatter={formatMoneyMaybeCents}
             />
-            <Row
-              label="Wisconsin effective tax owed"
-              value={"0.00"}
-              colorClass={group1}
-              valueFormatter={formatMoneyMaybeCents}
-            />
+            <Row label="Wisconsin effective tax owed" value={"0.00"} colorClass={group1} valueFormatter={formatMoneyMaybeCents} />
             <Row
               label="Aprrox Wisconsin refundable credits"
               value={"2364.00"}
@@ -226,6 +227,7 @@ export default function AdditionalCalculationsPanel({
               valueFormatter={formatMoneyMaybeCents}
             />
 
+            {/* Use the live cell value from E49 for the emphasized line */}
             <Row
               label="Estimated after-tax disposable"
               value={afterTaxDisposable}
@@ -236,6 +238,7 @@ export default function AdditionalCalculationsPanel({
             />
           </div>
 
+          {/* GROUP 2: Same color as Total annual non-cash & tax-advantaged value; make its value larger */}
           <div className="rounded-2xl border border-black/10 bg-white p-4">
             <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
               Non-cash + tax-advantaged supports
@@ -279,12 +282,18 @@ export default function AdditionalCalculationsPanel({
             />
           </div>
 
+          {/* GROUP 3: Same color as Total annual employer provided cash benefits; make its value larger */}
           <div className="rounded-2xl border border-black/10 bg-white p-4">
             <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
               Employer-provided cash benefits
             </div>
 
-            <Row label="Moving expenses+signing Bonus" value={"5000"} colorClass={group3} valueFormatter={formatMoney} />
+            <Row
+              label="Moving expenses+signing Bonus"
+              value={"5000"}
+              colorClass={group3}
+              valueFormatter={formatMoney}
+            />
             <Row label="Milestone bonus" value={"0"} colorClass={group3} valueFormatter={formatMoney} />
             <Row label="LOW annual contribution" value={"1000"} colorClass={group3} valueFormatter={formatMoney} />
             <Row label="Cheder Tuition" value={"720"} colorClass={group3} valueFormatter={formatMoney} />
@@ -303,12 +312,15 @@ export default function AdditionalCalculationsPanel({
           </div>
         </div>
 
+        {/* Bottom emphasized All-in economic value (bigger than the rest in the section) */}
         <div className="px-5 pb-5">
           <div className="rounded-2xl border border-black/10 bg-slate-50 p-5">
             <div className="flex items-end justify-between gap-4">
               <div>
                 <div className="text-sm font-semibold text-slate-700">All-in economic value</div>
-                <div className="text-xs text-slate-500">(Comp + supports + tuition)</div>
+                <div className="text-xs text-slate-500">
+                  (Comp + supports + tuition)
+                </div>
               </div>
 
               <div className={["tabular-nums", allIn, "text-3xl font-black"].join(" ")}>
