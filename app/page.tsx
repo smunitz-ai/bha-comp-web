@@ -1112,7 +1112,7 @@ export default function Page() {
             <div style={{ gridColumn: "span 6" }}>
               <MiniStat
                 label="All-In Value Including Tuition"
-                value={pickValue(sections, "All-in value incl. tuition")}
+                value={pickValue(sections, "All-in value incl. tuition (Comp + supports + tuition)")}
               />
             </div>
           </div>
