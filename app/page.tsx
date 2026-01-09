@@ -28,7 +28,6 @@ const OPTIONS = {
     "Year 27",
     "Year 28+",
   ],
-  // NEW: dropdown options for FTE
   ftes: ["0.5", "0.6", "0.75", "1"],
 };
 
@@ -535,12 +534,12 @@ export default function Page() {
 
     spouseARole: "Primary Breadwinner",
     spouseAGender: "Man",
-    spouseAFTE: "1", // default fits dropdown
+    spouseAFTE: "1",
     spouseACheder: "Yes",
     spouseAPDO: "6",
 
     spouseBGender: "Woman",
-    spouseBFTE: "0.6", // default fits dropdown
+    spouseBFTE: "0.6",
     spouseBCheder: "Yes",
     spouseBPDO: "0",
 
@@ -685,7 +684,7 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Inputs (order: spouse A, spouse B, family, then summary) */}
+        {/* Inputs */}
         <div style={{ marginTop: 16, display: "grid", gap: 16 }}>
           {/* Top input controls */}
           <div style={{ ...surface, padding: 16 }}>
@@ -755,7 +754,6 @@ export default function Page() {
                 </Field>
               </div>
 
-              {/* NEW: FTE dropdown */}
               <div style={{ gridColumn: "span 2" }}>
                 <Field label="FTE">
                   <select style={control} value={form.spouseAFTE} onChange={(e) => setForm({ ...form, spouseAFTE: e.target.value })}>
@@ -804,7 +802,6 @@ export default function Page() {
                   </Field>
                 </div>
 
-                {/* NEW: FTE dropdown */}
                 <div style={{ gridColumn: "span 2" }}>
                   <Field label="FTE">
                     <select style={control} value={form.spouseBFTE} onChange={(e) => setForm({ ...form, spouseBFTE: e.target.value })}>
@@ -967,8 +964,10 @@ export default function Page() {
             <div style={{ gridColumn: "span 3" }}>
               <MiniStat label="Total 403(b)" value={pickValue(sections, "Total 403(b)")} />
             </div>
+
+            {/* CHANGED: PDO OUT, CHINUCH FUND IN */}
             <div style={{ gridColumn: "span 3" }}>
-              <MiniStat label="Total PDO Compensation" value={pickValue(sections, "Total PDO Compensation")} />
+              <MiniStat label="Total Chinuch Fund" value={pickValue(sections, "Total Chinuch Fund")} />
             </div>
           </div>
         </div>
