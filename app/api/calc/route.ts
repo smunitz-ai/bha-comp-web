@@ -86,6 +86,19 @@ function rowsFromTwoCols(grid: string[][], labelColIndex = 0, valueColIndex = 1)
   return out;
 }
 
+function dedupeRowsByLabel(rows: { label: string; value: string }[]) {
+  const seen = new Set<string>();
+  const out: { label: string; value: string }[] = [];
+  for (const r of rows) {
+    const key = r.label.trim().toLowerCase();
+    if (!key) continue;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(r);
+  }
+  return out;
+}
+
 function pickByLabel(pairs: { label: string; value: string }[], wanted: string[]) {
   const map = new Map<string, string>();
   for (const p of pairs) map.set(p.label.toLowerCase(), p.value);
@@ -209,6 +222,7 @@ export async function POST(req: Request) {
       `${tab}!N3:Q21`, // helper table
       `${tab}!U1:U1`, // helper cell
       `${tab}!A60:H110`, // scan for children/tuition labels (optional display)
+      `${tab}!D83:E85`, // tuition benefits
     ];
 
     const resp = await sheets.spreadsheets.values.batchGet({
@@ -249,9 +263,12 @@ export async function POST(req: Request) {
     const n3_q21 = vr[5]?.values || [];
     const u1 = getCell(vr, 6, 0, 0);
     const a60_h110 = vr[7]?.values || [];
+    const d83_e85 = vr[8]?.values || [];
+    const tuitionRows = rowsFromTwoCols(d83_e85, 0, 1).filter((r) => r.value !== "");
 
-    const more1 = rowsFromTwoCols(d42_e74, 0, 1).filter((r) => r.value !== "");
-    const more2 = rowsFromTwoCols(f36_g40, 0, 1).filter((r) => r.value !== "");
+    const more1 = dedupeRowsByLabel(rowsFromTwoCols(d42_e74, 0, 1)).filter((r) => r.value !== "");
+    const more2 = dedupeRowsByLabel(rowsFromTwoCols(f36_g40, 0, 1)).filter((r) => r.value !== "");
+
 
     const childrenWanted = [
       "Children / Tuition savings",
@@ -301,6 +318,14 @@ export async function POST(req: Request) {
 
     if (more1.length)
       sections.push({ kind: "rows", title: "Additional Calculations", rows: more1 });
+    if (tuitionRows.length) {
+  sections.push({
+    kind: "rows",
+    title: "Tuition Benefits",
+    rows: tuitionRows,
+  });
+}
+
     if (more2.length) sections.push({ kind: "rows", title: "Other Calculations", rows: more2 });
     if (childrenRows.length)
       sections.push({
