@@ -10,7 +10,6 @@ type Section = RowsSection | TableSection | NoteSection;
 type ApiResponse = { ok: boolean; sections?: Section[]; error?: string };
 
 const OPTIONS = {
-  // tiers REMOVED (tier is now derived from programYear)
   scenarios: ["Two Spouses", "One Spouse"],
   spouseARoles: ["Primary Breadwinner", "Non-Primary Breadwinner"],
   genders: ["Man", "Woman"],
@@ -31,16 +30,15 @@ const OPTIONS = {
   ftes: ["0.5", "0.6", "0.75", "1"],
 };
 
-// ---------- NEW: derive tier from Program Year (single source of truth) ----------
+// ---------- derive tier from Program Year (single source of truth) ----------
 function tierFromProgramYear(programYear: string): string {
-  // Be tolerant in case a hyphen sneaks in (2-5 instead of 2–5)
   const py = (programYear || "").replace("-", "–").trim();
 
   if (py === "Year 1" || py === "Year 2–5") return "1";
   if (py === "Year 6" || py === "Year 7–11") return "2";
   if (py === "Year 12" || py === "Year 13–18") return "3";
   if (py === "Year 19" || py === "Year 20–26") return "4";
-  return "5"; // Year 27 or Year 28+
+  return "5";
 }
 
 // -------------------- tiny icon set (inline SVG, no deps) --------------------
@@ -158,13 +156,7 @@ function Icon({
 
   return (
     <svg {...common}>
-      <path
-        d="M9 6l6 6-6 6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -269,26 +261,31 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 function categoryForTitle(title: string) {
   const t = title.toLowerCase();
   if (t.includes("compensation"))
-    return {
-      key: "comp",
-      label: "Compensation",
-      icon: "money" as const,
-      tint: "rgba(99,102,241,0.10)",
-      border: "rgba(99,102,241,0.22)",
-    };
+    return { key: "comp", label: "Compensation", icon: "money" as const, tint: "rgba(99,102,241,0.10)", border: "rgba(99,102,241,0.22)" };
   if (t === "totals" || t.includes("grand total") || t.includes("total"))
     return { key: "totals", label: "Totals", icon: "chart" as const, tint: "rgba(16,185,129,0.10)", border: "rgba(16,185,129,0.22)" };
   if (t.includes("additional"))
     return { key: "addl", label: "Additional", icon: "calc" as const, tint: "rgba(245,158,11,0.10)", border: "rgba(245,158,11,0.22)" };
   if (t.includes("other"))
     return { key: "other", label: "Other", icon: "grid" as const, tint: "rgba(14,165,233,0.10)", border: "rgba(14,165,233,0.22)" };
-  if (t.includes("children"))
+  if (t.includes("children") || t.includes("tuition"))
     return { key: "kids", label: "Children", icon: "users" as const, tint: "rgba(236,72,153,0.10)", border: "rgba(236,72,153,0.22)" };
   return { key: "misc", label: "Results", icon: "sparkle" as const, tint: "rgba(148,163,184,0.12)", border: "rgba(148,163,184,0.24)" };
 }
 
+// --- NEW: emphasize these internal “subsection” lines inside Additional Calculations ---
+function isEmphasisRow(label: string) {
+  const t = (label || "").trim().toLowerCase();
+  return (
+    t === "estimated after tax disposable" ||
+    t === "total annual non-cash and tax advantage value" ||
+    t === "total annual employer provided cash benefits"
+  );
+}
+
 function RowsCard({ title, rows }: { title: string; rows: { label: string; value: string }[] }) {
   const cat = categoryForTitle(title);
+  const allowEmphasis = title.trim().toLowerCase() === "additional calculations";
 
   return (
     <div
@@ -324,23 +321,33 @@ function RowsCard({ title, rows }: { title: string; rows: { label: string; value
       </div>
 
       <div style={{ border: "1px solid rgba(226,232,240,1)", borderRadius: 14, overflow: "hidden" }}>
-        {rows.map((r, idx) => (
-          <div
-            key={r.label}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr auto",
-              gap: 12,
-              padding: "11px 12px",
-              background: idx % 2 ? "rgba(255,255,255,0.92)" : "rgba(248,250,252,0.82)",
-              borderTop: idx === 0 ? "none" : "1px solid rgba(226,232,240,0.7)",
-              alignItems: "center",
-            }}
-          >
-            <div style={{ fontSize: 13, color: "#0f172a" }}>{r.label}</div>
-            <div style={{ fontSize: 13, fontWeight: 950, whiteSpace: "nowrap", color: "#0f172a" }}>{r.value || "—"}</div>
-          </div>
-        ))}
+        {rows.map((r, idx) => {
+          const emph = allowEmphasis && isEmphasisRow(r.label);
+
+          return (
+            <div
+              key={`${r.label}-${idx}`}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr auto",
+                gap: 12,
+                padding: emph ? "13px 12px" : "11px 12px",
+                background: emph
+                  ? "rgba(15,23,42,0.06)"
+                  : idx % 2
+                  ? "rgba(255,255,255,0.92)"
+                  : "rgba(248,250,252,0.82)",
+                borderTop: idx === 0 ? "none" : "1px solid rgba(226,232,240,0.7)",
+                alignItems: "center",
+              }}
+            >
+              <div style={{ fontSize: emph ? 14 : 13, fontWeight: emph ? 1000 : 400, color: "#0f172a" }}>{r.label}</div>
+              <div style={{ fontSize: emph ? 14 : 13, fontWeight: emph ? 1100 : 950, whiteSpace: "nowrap", color: "#0f172a" }}>
+                {r.value || "—"}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -557,9 +564,17 @@ function pickValue(sections: Section[] | null, label: string) {
   return "";
 }
 
+// --- NEW: try multiple label options; returns first non-empty match ---
+function pickFirstValue(sections: Section[] | null, labels: string[]) {
+  for (const l of labels) {
+    const v = pickValue(sections, l);
+    if (String(v || "").trim() !== "") return v;
+  }
+  return "";
+}
+
 export default function Page() {
   const [form, setForm] = useState({
-    // tier removed — now derived
     scenario: "Two Spouses",
 
     spouseARole: "Primary Breadwinner",
@@ -584,7 +599,6 @@ export default function Page() {
 
   const hideSpouseB = useMemo(() => form.scenario === "One Spouse", [form.scenario]);
 
-  // NEW: always compute tier from programYear
   const derivedTier = useMemo(() => tierFromProgramYear(form.programYear), [form.programYear]);
 
   const [loading, setLoading] = useState(false);
@@ -598,7 +612,7 @@ export default function Page() {
 
     try {
       const payload: any = {
-        tier: derivedTier, // <- still sent to API (safe, no backend changes required)
+        tier: derivedTier,
         scenario: form.scenario,
 
         spouseARole: form.spouseARole,
@@ -659,8 +673,7 @@ export default function Page() {
             padding: 18,
             borderRadius: 22,
             background:
-              "linear-gradient(135deg, rgba(99,102,241,0.18), rgba(16,185,129,0.12))," +
-              "rgba(255,255,255,0.85)",
+              "linear-gradient(135deg, rgba(99,102,241,0.18), rgba(16,185,129,0.12))," + "rgba(255,255,255,0.85)",
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
@@ -722,7 +735,6 @@ export default function Page() {
           {/* Top input controls */}
           <div style={{ ...surface, padding: 16 }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 12 }}>
-              {/* NEW: tier read-only display */}
               <div style={{ gridColumn: "span 3" }}>
                 <Field label="Tier (auto)">
                   <input style={{ ...control, background: "rgba(248,250,252,0.9)" }} value={derivedTier} readOnly />
@@ -754,8 +766,6 @@ export default function Page() {
               </div>
             </div>
           </div>
-
-          {/* (everything else below stays the same) */}
 
           {/* Spouse A */}
           <Collapsible title="Spouse A" icon="person" defaultOpen={true} right={<Pill>{form.spouseAGender}, FTE {form.spouseAFTE}</Pill>}>
@@ -974,8 +984,7 @@ export default function Page() {
                   padding: 14,
                   border: "1px solid rgba(16,185,129,0.24)",
                   background:
-                    "linear-gradient(135deg, rgba(16,185,129,0.12), rgba(99,102,241,0.10))," +
-                    "rgba(248,250,252,0.75)",
+                    "linear-gradient(135deg, rgba(16,185,129,0.12), rgba(99,102,241,0.10))," + "rgba(248,250,252,0.75)",
                 }}
               >
                 <div style={{ fontSize: 11, fontWeight: 900, color: "#64748b", letterSpacing: ".10em" }}>
@@ -983,6 +992,32 @@ export default function Page() {
                 </div>
                 <div style={{ marginTop: 6, fontSize: 26, fontWeight: 1100, color: "#0f172a" }}>
                   {pickValue(sections, "Total Compensation (Yearly)") || "—"}
+                </div>
+
+                {/* NEW: secondary key lines */}
+                <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                    <div style={{ fontSize: 11, fontWeight: 900, color: "#64748b", letterSpacing: ".08em" }}>
+                      AFTER TAX DISPOSABLE
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 1000, color: "#0f172a", whiteSpace: "nowrap" }}>
+                      {pickFirstValue(sections, ["Estimated After Tax Disposable", "After Tax Disposable"]) || "—"}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                    <div style={{ fontSize: 11, fontWeight: 900, color: "#64748b", letterSpacing: ".08em" }}>
+                      ALL-IN VALUE (INCLUDING TUITION)
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 1100, color: "#0f172a", whiteSpace: "nowrap" }}>
+                      {pickFirstValue(sections, [
+                        "All In Value Including Tuition",
+                        "All-in Value Including Tuition",
+                        "All-in Value (Including Everything)",
+                        "All In Value (Including Everything)",
+                      ]) || "—"}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -996,10 +1031,9 @@ export default function Page() {
             <div style={{ gridColumn: "span 3" }}>
               <MiniStat label="Total 403(b)" value={pickValue(sections, "Total 403(b)")} />
             </div>
-
-            {/* ✅ Added Chinuch Fund, ✅ Removed PDO card */}
             <div style={{ gridColumn: "span 3" }}>
-              <MiniStat label="Total Chinuch Fund" value={pickValue(sections, "Total Chinuch Fund")} />
+              {/* (You previously asked to remove PDO from Summary; leaving it out is consistent) */}
+              <MiniStat label="Total Chinuch Fund" value={pickFirstValue(sections, ["Total Chinuch Fund", "Chinuch Fund"])} />
             </div>
           </div>
         </div>
