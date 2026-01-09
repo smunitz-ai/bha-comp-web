@@ -16,14 +16,14 @@ type Payload = {
   spouseBCheder?: string;
   spouseBPDO?: number | string;
 
-  programYear?: string; // B63 uses specific dropdown strings
+  programYear?: string;
 
-  kidsP8?: string | number; // B77
-  kidsCheder?: string | number; // B78
-  girlsBHH?: string | number; // B79
+  kidsP8?: string | number;
+  kidsCheder?: string | number;
+  girlsBHH?: string | number;
 
-  perfA?: string; // F34: "Level 1"..."Level 4"
-  perfB?: string; // F35: "Level 1"..."Level 4"
+  perfA?: string;
+  perfB?: string;
 };
 
 type Section =
@@ -86,28 +86,25 @@ function rowsFromTwoCols(grid: string[][], labelColIndex = 0, valueColIndex = 1)
   return out;
 }
 
-function dedupeRowsByLabel(rows: { label: string; value: string }[]) {
-  const seen = new Set<string>();
-  const out: { label: string; value: string }[] = [];
-  for (const r of rows) {
-    const key = r.label.trim().toLowerCase();
-    if (!key) continue;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(r);
-  }
+// Like rowsFromTwoCols, but keeps the zero-based row index within the grid
+function rowsFromTwoColsWithIndex(grid: string[][], labelColIndex = 0, valueColIndex = 1) {
+  const out: { label: string; value: string; rowIndex: number }[] = [];
+  (grid || []).forEach((row, i) => {
+    const label = (row?.[labelColIndex] ?? "").toString().trim();
+    const value = (row?.[valueColIndex] ?? "").toString().trim();
+    if (!label) return;
+    if (label.toLowerCase() === "totals") return;
+    out.push({ label, value, rowIndex: i });
+  });
   return out;
 }
 
 function pickByLabel(pairs: { label: string; value: string }[], wanted: string[]) {
   const map = new Map<string, string>();
-  for (const p of pairs) map.set(p.label.toLowerCase(), p.value);
+  for (const p of pairs) {
+    map.set(p.label.toLowerCase(), p.value);
+  }
   return wanted.map((w) => ({ label: w, value: map.get(w.toLowerCase()) ?? "" }));
-}
-
-function valueByLabel(pairs: { label: string; value: string }[], label: string) {
-  const key = label.toLowerCase();
-  return pairs.find((p) => p.label.toLowerCase() === key)?.value ?? "";
 }
 
 // Scan a rectangle for specific labels; value is immediately to the right.
@@ -130,8 +127,7 @@ function findLabelRightValuePairs(rect: string[][], wantedLabels: string[]) {
   const order = new Map(wantedLabels.map((l, i) => [l.toLowerCase(), i]));
   found.sort(
     (a, b) =>
-      (order.get(a.label.toLowerCase()) ?? 999) -
-      (order.get(b.label.toLowerCase()) ?? 999)
+      (order.get(a.label.toLowerCase()) ?? 999) - (order.get(b.label.toLowerCase()) ?? 999)
   );
   return found;
 }
@@ -163,9 +159,6 @@ export async function POST(req: Request) {
 
     // 1) Write inputs
     const data = [
-      // DO NOT write B9 anymore — let the sheet compute Tier from Program Year (B63)
-      // { range: `${tab}!B9`, values: [[parseMaybeNumber(body.tier)]] },
-
       { range: `${tab}!B10`, values: [[body.scenario ?? ""]] },
 
       { range: `${tab}!B12`, values: [[body.spouseARole ?? ""]] },
@@ -211,18 +204,22 @@ export async function POST(req: Request) {
       if (String(e9).trim() !== "" || String(e26).trim() !== "") break;
     }
 
-    // 3) Read outputs + totals-by-label + extras
+    // 3) Read outputs
     const ranges = [
-      `${tab}!E9:E18`, // main comp lines (includes "Chinuch Fund" line)
-      `${tab}!D18:E26`, // totals block (where you added "Total Chinuch Fund")
-      `${tab}!E26:E26`, // grand total
+      `${tab}!E9:E18`, // 0 main comp lines
+      `${tab}!D18:E26`, // 1 totals block (label/value pairs)
+      `${tab}!E26:E26`, // 2 grand total (total comp yearly)
 
-      `${tab}!D42:E74`, // additional calcs block
-      `${tab}!F36:G40`, // other calcs block (starts AFTER perf dropdowns)
-      `${tab}!N3:Q21`, // helper table
-      `${tab}!U1:U1`, // helper cell
-      `${tab}!A60:H110`, // scan for children/tuition labels (optional display)
-      `${tab}!D83:E85`, // tuition benefits
+      `${tab}!D42:E74`, // 3 additional calcs block (this contains E44)
+      `${tab}!F36:G40`, // 4 other calcs block
+
+      `${tab}!N3:Q21`, // 5 helper table
+      `${tab}!U1:U1`, // 6 helper cell
+
+      `${tab}!A60:H110`, // 7 scan for children/tuition labels (optional display)
+
+      `${tab}!D83:E85`, // 8 tuition benefits
+      `${tab}!D87:E87`, // 9 all-in value
     ];
 
     const resp = await sheets.spreadsheets.values.batchGet({
@@ -236,8 +233,6 @@ export async function POST(req: Request) {
     const e9_e18 = (vr[0]?.values || []).map((r: any[]) => r?.[0] ?? "");
 
     const totalsPairs = rowsFromTwoCols(vr[1]?.values || [], 0, 1);
-
-    // Keep this if you still show a "TOTALS" section elsewhere in the UI
     const totalsRows = pickByLabel(totalsPairs, [
       "Total Base Salaries",
       "Total Cheder Stipends",
@@ -248,32 +243,32 @@ export async function POST(req: Request) {
 
     const e26 = getCell(vr, 2, 0, 0);
 
-    // ✅ This is the section your UI calls "Summary / Key outputs"
-    const summaryKeyOutputsRows = [
-      { label: "Total Compensation", value: String(e26 ?? "") },
-      { label: "Total Base Salaries", value: valueByLabel(totalsPairs, "Total Base Salaries") },
-      { label: "Total Cheder Stipends", value: valueByLabel(totalsPairs, "Total Cheder Stipends") },
-      { label: "Total 403B", value: valueByLabel(totalsPairs, "Total 403(b)") },
-      { label: "Total PDO Compensation", value: valueByLabel(totalsPairs, "Total PDO Compensation") },
-      { label: "Total Chinuch Fund", value: valueByLabel(totalsPairs, "Total Chinuch Fund") },
-    ].filter((r) => String(r.value ?? "").trim() !== "");
-
     const d42_e74 = vr[3]?.values || [];
     const f36_g40 = vr[4]?.values || [];
+
     const n3_q21 = vr[5]?.values || [];
     const u1 = getCell(vr, 6, 0, 0);
+
     const a60_h110 = vr[7]?.values || [];
+
     const d83_e85 = vr[8]?.values || [];
     const tuitionRows = rowsFromTwoCols(d83_e85, 0, 1).filter((r) => r.value !== "");
 
-    const more1 = dedupeRowsByLabel(rowsFromTwoCols(d42_e74, 0, 1)).filter((r) => r.value !== "");
-    const more2 = dedupeRowsByLabel(rowsFromTwoCols(f36_g40, 0, 1)).filter((r) => r.value !== "");
-    const more1 = rowsFromTwoCols(d42_e74, 0, 1)
-  .filter((r) => r.value !== "")
-  // remove the approx parsonage line (exact wording)
-  .filter((r) => r.label.trim() !== "Aprrox Income-tax savings on parsonage (22 %)");
+    const d87_e87 = vr[9]?.values || [];
+    const allInLabelRaw = (d87_e87?.[0]?.[0] ?? "").toString().trim();
+    const allInValue = (d87_e87?.[0]?.[1] ?? "").toString().trim();
+    const allInLabel = allInLabelRaw || "All-in Value (Including Everything)";
 
+    // Additional Calculations:
+    // - remove E44 specifically => D42:E74 rowIndex 2 is sheet row 44 (42->0, 43->1, 44->2)
+    // - remove exact approx-parsonage line
+    const more1 = rowsFromTwoColsWithIndex(d42_e74, 0, 1)
+      .filter((r) => r.value !== "")
+      .filter((r) => r.rowIndex !== 2) // removes E44
+      .filter((r) => r.label.trim() !== "Aprrox Income-tax savings on parsonage (22 %)")
+      .map(({ label, value }) => ({ label, value }));
 
+    const more2 = rowsFromTwoCols(f36_g40, 0, 1).filter((r) => r.value !== "");
 
     const childrenWanted = [
       "Children / Tuition savings",
@@ -288,9 +283,9 @@ export async function POST(req: Request) {
       .filter((x) => x.label.toLowerCase() !== "children / tuition savings")
       .filter((x) => x.value !== "");
 
+    // 4) Build sections for UI
     const sections: Section[] = [];
 
-  
     sections.push({
       kind: "rows",
       title: "Compensation",
@@ -308,36 +303,26 @@ export async function POST(req: Request) {
       ],
     });
 
-    // Keep this; harmless, and some UI views may still display it
     sections.push({
       kind: "rows",
       title: "TOTALS",
-      rows: totalsRows,
+      rows: totalsRows.filter((r) => String(r.value || "").trim() !== ""),
     });
 
     sections.push({
       kind: "rows",
       title: "Grand Total",
-      rows: [{ label: "Total Compensation (Yearly)", value: String(e26 ?? "") }],
+      rows: [
+        { label: "Total Compensation (Yearly)", value: String(e26 ?? "") },
+        ...(allInValue ? [{ label: allInLabel, value: allInValue }] : []),
+      ],
     });
 
-    if (more1.length)
-      sections.push({ kind: "rows", title: "Additional Calculations", rows: more1 });
-    if (tuitionRows.length) {
-  sections.push({
-    kind: "rows",
-    title: "Tuition Benefits",
-    rows: tuitionRows,
-  });
-}
-
+    if (more1.length) sections.push({ kind: "rows", title: "Additional Calculations", rows: more1 });
+    if (tuitionRows.length) sections.push({ kind: "rows", title: "Tuition Benefits", rows: tuitionRows });
     if (more2.length) sections.push({ kind: "rows", title: "Other Calculations", rows: more2 });
     if (childrenRows.length)
-      sections.push({
-        kind: "rows",
-        title: "Children / Tuition Savings (read-only)",
-        rows: childrenRows,
-      });
+      sections.push({ kind: "rows", title: "Children / Tuition Savings (read-only)", rows: childrenRows });
 
     if (n3_q21.length) {
       const headers = (n3_q21[0] || []).map((x: any) => String(x ?? ""));
