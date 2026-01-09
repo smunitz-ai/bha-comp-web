@@ -268,6 +268,11 @@ export async function POST(req: Request) {
 
     const more1 = dedupeRowsByLabel(rowsFromTwoCols(d42_e74, 0, 1)).filter((r) => r.value !== "");
     const more2 = dedupeRowsByLabel(rowsFromTwoCols(f36_g40, 0, 1)).filter((r) => r.value !== "");
+    const more1 = rowsFromTwoCols(d42_e74, 0, 1)
+  .filter((r) => r.value !== "")
+  // remove the approx parsonage line (exact wording)
+  .filter((r) => r.label.trim() !== "Aprrox Income-tax savings on parsonage (22 %)");
+
 
 
     const childrenWanted = [
