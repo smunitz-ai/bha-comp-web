@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
 
+export const runtime = "nodejs";
+
 type Payload = {
   tier?: string | number;
   scenario?: string;
@@ -86,7 +88,6 @@ function rowsFromTwoCols(grid: string[][], labelColIndex = 0, valueColIndex = 1)
   return out;
 }
 
-// Like rowsFromTwoCols, but keeps the zero-based row index within the grid
 function rowsFromTwoColsWithIndex(grid: string[][], labelColIndex = 0, valueColIndex = 1) {
   const out: { label: string; value: string; rowIndex: number }[] = [];
   (grid || []).forEach((row, i) => {
@@ -101,13 +102,10 @@ function rowsFromTwoColsWithIndex(grid: string[][], labelColIndex = 0, valueColI
 
 function pickByLabel(pairs: { label: string; value: string }[], wanted: string[]) {
   const map = new Map<string, string>();
-  for (const p of pairs) {
-    map.set(p.label.toLowerCase(), p.value);
-  }
+  for (const p of pairs) map.set(p.label.toLowerCase(), p.value);
   return wanted.map((w) => ({ label: w, value: map.get(w.toLowerCase()) ?? "" }));
 }
 
-// Scan a rectangle for specific labels; value is immediately to the right.
 function findLabelRightValuePairs(rect: string[][], wantedLabels: string[]) {
   const wanted = new Map(wantedLabels.map((x) => [x.toLowerCase(), x]));
   const found: { label: string; value: string }[] = [];
@@ -132,6 +130,22 @@ function findLabelRightValuePairs(rect: string[][], wantedLabels: string[]) {
   return found;
 }
 
+async function safeJson(req: Request): Promise<Payload> {
+  try {
+    const text = await req.text();
+    if (!text || !text.trim()) return {};
+    return JSON.parse(text);
+  } catch {
+    return {};
+  }
+}
+
+function devLogError(tag: string, err: any) {
+  // Always log in dev so we can see what’s happening
+  console.error(`[api/calc] ${tag}:`, err);
+  if (err?.stack) console.error(err.stack);
+}
+
 export async function GET() {
   try {
     const { sheets, spreadsheetId, tab } = getSheetsClient();
@@ -145,6 +159,7 @@ export async function GET() {
       testValue: resp.data.values?.[0]?.[0] ?? null,
     });
   } catch (err: any) {
+    devLogError("GET failed", err);
     return NextResponse.json(
       { ok: false, error: err?.message || String(err) },
       { status: 500 }
@@ -154,7 +169,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as Payload;
+    const body = await safeJson(req);
     const { sheets, spreadsheetId, tab } = getSheetsClient();
 
     // 1) Write inputs
@@ -210,13 +225,13 @@ export async function POST(req: Request) {
       `${tab}!D18:E26`, // 1 totals block (label/value pairs)
       `${tab}!E26:E26`, // 2 grand total (total comp yearly)
 
-      `${tab}!D42:E74`, // 3 additional calcs block (this contains E44)
+      `${tab}!D42:E74`, // 3 additional calcs block
       `${tab}!F36:G40`, // 4 other calcs block
 
       `${tab}!N3:Q21`, // 5 helper table
       `${tab}!U1:U1`, // 6 helper cell
 
-      `${tab}!A60:H110`, // 7 scan for children/tuition labels (optional display)
+      `${tab}!A60:H110`, // 7 scan for children/tuition labels
 
       `${tab}!D83:E85`, // 8 tuition benefits
       `${tab}!D87:E87`, // 9 all-in value
@@ -229,7 +244,6 @@ export async function POST(req: Request) {
     });
 
     const vr = resp.data.valueRanges || [];
-
     const e9_e18 = (vr[0]?.values || []).map((r: any[]) => r?.[0] ?? "");
 
     const totalsPairs = rowsFromTwoCols(vr[1]?.values || [], 0, 1);
@@ -259,12 +273,10 @@ export async function POST(req: Request) {
     const allInValue = (d87_e87?.[0]?.[1] ?? "").toString().trim();
     const allInLabel = allInLabelRaw || "All-in Value (Including Everything)";
 
-    // Additional Calculations:
-    // - remove E44 specifically => D42:E74 rowIndex 2 is sheet row 44 (42->0, 43->1, 44->2)
-    // - remove exact approx-parsonage line
+    // Additional Calculations cleanup
     const more1 = rowsFromTwoColsWithIndex(d42_e74, 0, 1)
       .filter((r) => r.value !== "")
-      .filter((r) => r.rowIndex !== 2) // removes E44
+      .filter((r) => r.rowIndex !== 2) // removes E44 (sheet row 44)
       .filter((r) => r.label.trim() !== "Aprrox Income-tax savings on parsonage (22 %)")
       .map(({ label, value }) => ({ label, value }));
 
@@ -321,14 +333,11 @@ export async function POST(req: Request) {
     if (more1.length) sections.push({ kind: "rows", title: "Additional Calculations", rows: more1 });
     if (tuitionRows.length) sections.push({ kind: "rows", title: "Tuition Benefits", rows: tuitionRows });
     if (more2.length) sections.push({ kind: "rows", title: "Other Calculations", rows: more2 });
-    if (childrenRows.length)
-      sections.push({ kind: "rows", title: "Children / Tuition Savings (read-only)", rows: childrenRows });
+    if (childrenRows.length) sections.push({ kind: "rows", title: "Children / Tuition Savings (read-only)", rows: childrenRows });
 
     if (n3_q21.length) {
       const headers = (n3_q21[0] || []).map((x: any) => String(x ?? ""));
-      const rows = (n3_q21.slice(1) || []).map((r: any[]) =>
-        (r || []).map((x) => String(x ?? ""))
-      );
+      const rows = (n3_q21.slice(1) || []).map((r: any[]) => (r || []).map((x) => String(x ?? "")));
       sections.push({ kind: "table", title: "Helper Table", headers, rows });
     }
 
@@ -338,6 +347,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, sections });
   } catch (err: any) {
+    devLogError("POST failed", err);
     return NextResponse.json(
       { ok: false, error: err?.message || String(err) },
       { status: 500 }
