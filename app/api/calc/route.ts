@@ -33,6 +33,19 @@ type Section =
   | { kind: "table"; title: string; headers: string[]; rows: string[][] }
   | { kind: "note"; title: string; value: string };
 
+const PROGRAM_YEAR_TO_TIER: Record<string, string> = {
+  "Year 1": "1",
+  "Year 2–5": "1",
+  "Year 6": "2",
+  "Year 7–11": "2",
+  "Year 12": "3",
+  "Year 13–18": "3",
+  "Year 19": "4",
+  "Year 20–26": "4",
+  "Year 27": "5",
+  "Year 28+": "5",
+};
+
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -123,10 +136,7 @@ function findLabelRightValuePairs(rect: string[][], wantedLabels: string[]) {
   }
 
   const order = new Map(wantedLabels.map((l, i) => [l.toLowerCase(), i]));
-  found.sort(
-    (a, b) =>
-      (order.get(a.label.toLowerCase()) ?? 999) - (order.get(b.label.toLowerCase()) ?? 999)
-  );
+  found.sort((a, b) => (order.get(a.label.toLowerCase()) ?? 999) - (order.get(b.label.toLowerCase()) ?? 999));
   return found;
 }
 
@@ -141,7 +151,6 @@ async function safeJson(req: Request): Promise<Payload> {
 }
 
 function devLogError(tag: string, err: any) {
-  // Always log in dev so we can see what’s happening
   console.error(`[api/calc] ${tag}:`, err);
   if (err?.stack) console.error(err.stack);
 }
@@ -160,17 +169,30 @@ export async function GET() {
     });
   } catch (err: any) {
     devLogError("GET failed", err);
-    return NextResponse.json(
-      { ok: false, error: err?.message || String(err) },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: err?.message || String(err) }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
     const body = await safeJson(req);
+
+    // Server-side tier derivation (future-proof + debugging)
+    const programYear = String(body.programYear ?? "").trim();
+    const derivedTier = PROGRAM_YEAR_TO_TIER[programYear] || "1";
+    body.tier = derivedTier;
+
+    const scenario = String(body.scenario ?? "").trim();
+    const oneSpouse = scenario.toLowerCase() === "one spouse";
+
     const { sheets, spreadsheetId, tab } = getSheetsClient();
+
+    // If One Spouse, clear spouse B inputs so stale values can’t affect formulas
+    const spouseBGender = oneSpouse ? "" : (body.spouseBGender ?? "");
+    const spouseBFTE = oneSpouse ? "" : parseMaybeNumber(body.spouseBFTE);
+    const spouseBCheder = oneSpouse ? "" : (body.spouseBCheder ?? "");
+    const spouseBPDO = oneSpouse ? "" : parseMaybeNumber(body.spouseBPDO);
+    const perfB = oneSpouse ? "" : (body.perfB ?? "");
 
     // 1) Write inputs
     const data = [
@@ -182,10 +204,10 @@ export async function POST(req: Request) {
       { range: `${tab}!B15`, values: [[body.spouseACheder ?? ""]] },
       { range: `${tab}!B16`, values: [[parseMaybeNumber(body.spouseAPDO)]] },
 
-      { range: `${tab}!B19`, values: [[body.spouseBGender ?? ""]] },
-      { range: `${tab}!B20`, values: [[parseMaybeNumber(body.spouseBFTE)]] },
-      { range: `${tab}!B21`, values: [[body.spouseBCheder ?? ""]] },
-      { range: `${tab}!B22`, values: [[parseMaybeNumber(body.spouseBPDO)]] },
+      { range: `${tab}!B19`, values: [[spouseBGender]] },
+      { range: `${tab}!B20`, values: [[spouseBFTE]] },
+      { range: `${tab}!B21`, values: [[spouseBCheder]] },
+      { range: `${tab}!B22`, values: [[spouseBPDO]] },
 
       { range: `${tab}!B63`, values: [[body.programYear ?? ""]] },
 
@@ -194,7 +216,7 @@ export async function POST(req: Request) {
       { range: `${tab}!B79`, values: [[parseMaybeNumber(body.girlsBHH)]] },
 
       { range: `${tab}!F34`, values: [[body.perfA ?? ""]] },
-      { range: `${tab}!F35`, values: [[body.perfB ?? ""]] },
+      { range: `${tab}!F35`, values: [[perfB]] },
     ];
 
     await sheets.spreadsheets.values.batchUpdate({
@@ -276,7 +298,7 @@ export async function POST(req: Request) {
     // Additional Calculations cleanup
     const more1 = rowsFromTwoColsWithIndex(d42_e74, 0, 1)
       .filter((r) => r.value !== "")
-      .filter((r) => r.rowIndex !== 2) // removes E44 (sheet row 44)
+      .filter((r) => r.rowIndex !== 2)
       .filter((r) => r.label.trim() !== "Aprrox Income-tax savings on parsonage (22 %)")
       .map(({ label, value }) => ({ label, value }));
 
@@ -345,12 +367,14 @@ export async function POST(req: Request) {
       sections.push({ kind: "note", title: "Helper (U1)", value: String(u1) });
     }
 
-    return NextResponse.json({ ok: true, sections });
+    return NextResponse.json({
+      ok: true,
+      // handy debug fields you can remove later if you want
+      meta: { programYear, derivedTier, scenario },
+      sections,
+    } as any);
   } catch (err: any) {
     devLogError("POST failed", err);
-    return NextResponse.json(
-      { ok: false, error: err?.message || String(err) },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: err?.message || String(err) }, { status: 500 });
   }
 }

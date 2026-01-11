@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 type RowsSection = { kind: "rows"; title: string; rows: { label: string; value: string }[] };
 type TableSection = { kind: "table"; title: string; headers: string[]; rows: string[][] };
@@ -10,7 +10,7 @@ type Section = RowsSection | TableSection | NoteSection;
 type ApiResponse = { ok: boolean; sections?: Section[]; error?: string };
 
 const OPTIONS = {
-  tiers: ["1", "2", "3", "4", "5"],
+  tiers: ["1", "2", "3", "4", "5"], // kept for compatibility (not used as a dropdown anymore)
   scenarios: ["Two Spouses", "One Spouse"],
   spouseARoles: ["Primary Breadwinner", "Non-Primary Breadwinner"],
   genders: ["Man", "Woman"],
@@ -29,6 +29,25 @@ const OPTIONS = {
     "Year 28+",
   ],
   ftes: ["0.5", "0.6", "0.75", "1"],
+};
+
+// Program Year → Tier mapping (matches your spreadsheet rules)
+// 1–5 => Tier 1
+// 6–11 => Tier 2
+// 12–18 => Tier 3
+// 19–26 => Tier 4
+// 27–28+ => Tier 5
+const PROGRAM_YEAR_TO_TIER: Record<string, string> = {
+  "Year 1": "1",
+  "Year 2–5": "1",
+  "Year 6": "2",
+  "Year 7–11": "2",
+  "Year 12": "3",
+  "Year 13–18": "3",
+  "Year 19": "4",
+  "Year 20–26": "4",
+  "Year 27": "5",
+  "Year 28+": "5",
 };
 
 // -------------------- tiny icon set (inline SVG, no deps) --------------------
@@ -146,13 +165,7 @@ function Icon({
 
   return (
     <svg {...common}>
-      <path
-        d="M9 6l6 6-6 6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -392,7 +405,7 @@ function RowsCard({ title, rows }: { title: string; rows: { label: string; value
                 style={{
                   fontSize: 13,
                   color: isAccented ? acc!.color : "#0f172a",
-                  fontWeight: isAccented ? 950 : 700, // label bold on accented lines
+                  fontWeight: isAccented ? 950 : 700,
                 }}
               >
                 {r.label}
@@ -401,7 +414,7 @@ function RowsCard({ title, rows }: { title: string; rows: { label: string; value
               <div
                 style={{
                   fontSize: 13,
-                  fontWeight: 950, // values bold always
+                  fontWeight: 950,
                   whiteSpace: "nowrap",
                   color: isAccented ? acc!.color : "#0f172a",
                 }}
@@ -629,7 +642,8 @@ function pickValue(sections: Section[] | null, label: string) {
 
 export default function Page() {
   const [form, setForm] = useState({
-    tier: "2",
+    // Tier is now auto-derived, but we keep it in form state so the payload stays stable.
+    tier: "1",
     scenario: "Two Spouses",
 
     spouseARole: "Primary Breadwinner",
@@ -652,6 +666,14 @@ export default function Page() {
     girlsBHH: "1",
   });
 
+  // Auto-derive Tier from Program Year (source of truth)
+  useEffect(() => {
+    const autoTier = PROGRAM_YEAR_TO_TIER[form.programYear] || "1";
+    if (form.tier !== autoTier) {
+      setForm((prev) => ({ ...prev, tier: autoTier }));
+    }
+  }, [form.programYear]); // intentionally only depends on programYear
+
   const hideSpouseB = useMemo(() => form.scenario === "One Spouse", [form.scenario]);
 
   const [loading, setLoading] = useState(false);
@@ -665,6 +687,8 @@ export default function Page() {
 
     try {
       const payload: any = {
+        // keep sending tier so the server/sheet can use it if needed,
+        // but it is always derived from programYear in the UI.
         tier: form.tier,
         scenario: form.scenario,
 
@@ -791,15 +815,22 @@ export default function Page() {
           {/* Top input controls */}
           <div style={{ ...surface, padding: 16 }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 12 }}>
+              {/* Tier (read-only / auto) */}
               <div style={{ gridColumn: "span 3" }}>
-                <Field label="Tier (1–5)">
-                  <select style={control} value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value })}>
-                    {OPTIONS.tiers.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
+                <Field label="Tier (auto)">
+                  <div
+                    style={{
+                      ...control,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      background: "rgba(248,250,252,0.9)",
+                      fontWeight: 900,
+                    }}
+                  >
+                    <span>{form.tier || "—"}</span>
+                    <span style={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>based on Program Year</span>
+                  </div>
                 </Field>
               </div>
 
@@ -1097,17 +1128,12 @@ export default function Page() {
               <MiniStat label="Total 403(b)" value={pickValue(sections, "Total 403(b)")} />
             </div>
 
-            {/* PDO OUT, CHINUCH FUND IN */}
             <div style={{ gridColumn: "span 3" }}>
               <MiniStat label="Total Chinuch Fund" value={pickValue(sections, "Total Chinuch Fund")} />
             </div>
 
-            {/* NEW: E49 + E87 */}
             <div style={{ gridColumn: "span 6" }}>
-              <MiniStat
-                label="Estimated After-Tax Disposable"
-                value={pickValue(sections, "Estimated after-tax disposable")}
-              />
+              <MiniStat label="Estimated After-Tax Disposable" value={pickValue(sections, "Estimated after-tax disposable")} />
             </div>
             <div style={{ gridColumn: "span 6" }}>
               <MiniStat
