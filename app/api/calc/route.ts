@@ -39,13 +39,13 @@ type Section =
 
 const PROGRAM_YEAR_TO_TIER: Record<string, string> = {
   "Year 1": "1",
-  "Year 2–5": "1",
+  "Year 2-5": "1",
   "Year 6": "2",
-  "Year 7–11": "2",
+  "Year 7-11": "2",
   "Year 12": "3",
-  "Year 13–18": "3",
+  "Year 13-18": "3",
   "Year 19": "4",
-  "Year 20–26": "4",
+  "Year 20-26": "4",
   "Year 27": "5",
   "Year 28+": "5",
 };
